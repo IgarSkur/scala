@@ -1,6 +1,7 @@
 import scala.io.Source
-import scala.util.Random
-import scala.collection.immutable.Queue
+import scala.collection.mutable.MutableList
+import scala.collection.mutable.HashMap
+import scala.collection.mutable.Stack
 
 trait SearchState
 object Unexplored extends SearchState
@@ -8,15 +9,24 @@ object Explored extends SearchState
 object Processed extends SearchState
 
 object Program {
-  type Graph = Map[Int, Vector[Int]]
-  def Graph(elems: (Int, Vector[Int])*) = Map(elems: _*)
+  type Graph = HashMap[Int, MutableList[Int]]
+  def Graph() = 
+    new HashMap[Int, MutableList[Int]] {
+      override def apply(key: Int) = super.get(key) getOrElse { 
+        val list = MutableList[Int]() 
+        update(key, list)
+        list
+      }
+    }
 
   def main(args: Array[String]): Unit = {
     val filename = "graph.txt"
     val lines = Source.fromFile(filename).getLines().filter(_ != "").toVector
 
-    val edges = lines.map(parseEdge(_))
-    val graph = edges.foldLeft(Graph())(connectEdge(_, _))
+    val graph = Graph()
+    val edges = lines.map(parseEdge(_)).sortBy(_._1)
+
+    edges.foreach(connectEdge(graph, _))
 
     depthFirstSearch(graph, 1)
   }
@@ -26,36 +36,31 @@ object Program {
     (ids(0), ids(1))
   }
 
-  def connectEdge(graph: Graph, edge: (Int, Int)): Graph = {
+  def connectEdge(graph: Graph, edge: (Int, Int)): Unit = {
     val (v1, v2) = edge
-    
-    val v1edges = graph.get(v1) match {
-      case Some(list) => v2 +: list
-      case None => Vector(v2)
-    }
-
-    val v2edges = graph.get(v2) match {
-      case Some(list) => list
-      case None => Vector[Int]()
-    }
-
-    graph + (v1 -> v1edges, v2 -> v2edges)
+    graph(v1) += v2
   }
 
   def depthFirstSearch(graph: Graph, v: Int): Unit = {
-    depthFirstSearch(graph, v, Map.empty)
-  }
+    val states = 
+      new HashMap[Int, SearchState] {
+        override def apply(key: Int) = super.get(key) getOrElse Unexplored
+      }
 
-  def depthFirstSearch(graph: Graph, v: Int, states: Map[Int, SearchState]): Map[Int, SearchState] = {
-    println(s"exploring $v")
+    val destinations = Stack(v)
 
-    var newStates = states + (v -> Explored)
+    while (!destinations.isEmpty) {
+      val v = destinations.pop()
 
-    for (u <- graph(v) if newStates.get(u) == None) {
-      newStates = depthFirstSearch(graph, u, newStates)
+      println(s"exploring $v")
+
+      states(v) = Processed
+
+      for (u <- graph(v) if states(u) == Unexplored) {
+        states(u) = Explored
+        destinations.push(u)
+      }
     }
-
-    newStates + (v -> Processed)
   }
 }
 
