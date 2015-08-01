@@ -8,6 +8,12 @@ object Unexplored extends SearchState
 object Explored extends SearchState
 object Processed extends SearchState
 
+case class SearchResults(
+  hierarchy: Map[Int, Int],
+  entryTimes: Map[Int, Int],
+  exitTimes: Map[Int, Int]
+)
+
 object Program {
   type Graph = HashMap[Int, MutableList[Int]]
   def Graph() = 
@@ -28,7 +34,7 @@ object Program {
 
     edges.foreach(connectEdge(graph, _))
 
-    depthFirstSearch(graph, 1)
+    val results = depthFirstSearch(graph, 1)
   }
 
   def parseEdge(text: String): (Int, Int) = {
@@ -41,26 +47,50 @@ object Program {
     graph(v1) += v2
   }
 
-  def depthFirstSearch(graph: Graph, v: Int): Unit = {
+  def depthFirstSearch(graph: Graph, v: Int): SearchResults = {
     val states = 
       new HashMap[Int, SearchState] {
         override def apply(key: Int) = super.get(key) getOrElse Unexplored
       }
 
-    val destinations = Stack(v)
+    val destinations = Stack[Int]()
+
+    val hierarchy = HashMap[Int, Int]()
+    val entryTimes = HashMap[Int, Int]()
+    val exitTimes = HashMap[Int, Int]()
+    var time = 0
+
+    states(v) = Explored
+    destinations.push(v)
 
     while (!destinations.isEmpty) {
       val v = destinations.pop()
 
-      println(s"exploring $v")
+      states(v) match {
+        case Processed => {
+          states(v) = Processed
+          exitTimes += (v -> time)
+          time += 1
+        }
+        case Explored => {
+          println(s"exploring $v")
 
-      states(v) = Processed
+          states(v) = Processed
+          entryTimes += (v -> time)
+          time += 1
 
-      for (u <- graph(v) if states(u) == Unexplored) {
-        states(u) = Explored
-        destinations.push(u)
+          destinations.push(v)
+
+          for (u <- graph(v) if states(u) == Unexplored) {
+            states(u) = Explored
+            destinations.push(u)
+            hierarchy += (u -> v)
+          }
+        }
       }
     }
+
+    SearchResults(hierarchy.toMap, entryTimes.toMap, exitTimes.toMap)
   }
 }
 
