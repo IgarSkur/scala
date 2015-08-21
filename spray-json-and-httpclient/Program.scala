@@ -7,14 +7,22 @@ import org.apache.http.impl.client.DefaultHttpClient
 
 import spray.json._
 
-case class WeatherResponse(
+case class Weather(
   coord: Coordinates,
+  weather: List[WeatherCondition],
   main: WeatherDetails
 )
 
 case class Coordinates(
   lon: Double,
   lat: Double
+)
+
+case class WeatherCondition(
+  id: Int,
+  main: String,
+  description: String,
+  icon: String
 )
 
 case class WeatherDetails(
@@ -26,9 +34,10 @@ case class WeatherDetails(
 )
 
 object MyJsonProtocol extends DefaultJsonProtocol {
-  implicit val coordinateResponseFormat = jsonFormat2(Coordinates)
-  implicit val weatherDetailsResponseFormat = jsonFormat5(WeatherDetails)
-  implicit val weatherResponseFormat = jsonFormat2(WeatherResponse)
+  implicit val coordinatesFormat = jsonFormat2(Coordinates)
+  implicit val weatherConditionFormat = jsonFormat4(WeatherCondition)
+  implicit val weatherDetailsFormat = jsonFormat5(WeatherDetails)
+  implicit val weatherFormat = jsonFormat3(Weather)
 }
 
 import MyJsonProtocol._
@@ -39,14 +48,13 @@ object Program {
     val jsonString = getRestContent("http://api.openweathermap.org/data/2.5/weather?id=4259418")
 
     val jsonAst = jsonString.parseJson
-    val weather = jsonAst.convertTo[WeatherResponse]
+    val weather = jsonAst.convertTo[Weather]
 
-    val current = kelvinToFarenheit(weather.main.temp)
-    val low = kelvinToFarenheit(weather.main.temp_min)
-    val high = kelvinToFarenheit(weather.main.temp_max)
+    val currentTemp = kelvinToFarenheit(weather.main.temp)
+    val currentConditions = weather.weather.map(_.description).mkString("\n")
 
-    println(s"The temperature in Indianapolis is currently $current°F.")
-    println(s"The high for today is $high°F. The low for today is $low°F.")
+    println(f"The temperature in Indianapolis is currently $currentTemp%.1f°F.")
+    println(s"The current conditions are:\n$currentConditions")
   }
 
   def getRestContent(url: String): String = {
